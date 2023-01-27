@@ -1,7 +1,7 @@
 # SBEDE-open
 A Bayesian Model for Portfolio Decisions based on Debiased and Regularized Expert Predictions
 
-Selective Bayesian expert debiasing (SBEDE) portfolio model is developed for an investor who wants aggregate multiple stock analyst return predictions and estimates the predictive posterior distribution of future stock return.
+The selective Bayesian expert debiasing (SBEDE) portfolio model has been developed for an investor who wants aggregate multiple external experts' (e.g. stock analysts) return predictions and estimate the predictive posterior distribution of future stock return.
 
 The data set for the illustration of the SBEDE portfolio model include one example industry with real stock returns and artificial expert predictions. The SBEDE model is coded with Stan, and R scripts for fitting the models and optimizing the portfolio with an example industry are also present.
 
