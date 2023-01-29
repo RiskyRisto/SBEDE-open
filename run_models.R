@@ -5,10 +5,10 @@ library(readxl)
 library(lubridate)
 library(rstan)
 
-# Set your directory for reading and saving files
-dir_files <- "Example_analysis/"
-# Set your directory for reading STAN models
-dir_models <- "Example_analysis/"
+# Set your directory for reading and saving files if relevant
+dir_files <- ""
+# Set your directory for reading STAN models if relevant
+dir_models <- ""
 
 #Industry
 indu <- "CommunicationsEquipment"
@@ -548,14 +548,14 @@ if(!two_step){
 
 if(two_step) opt_df_best2 <- opt_df %>% arrange(Method)
 
-# After running with both methods, check that both methods gave the same results
-opt_df_best %>% left_join(
-    opt_df_best2 %>%
-        rename(Asset2 = Asset, w_opt2 = w_opt, opt_val2=opt_val, convg2 = convg)
-    ) %>% 
-    mutate(across(where(is.double),round, digits = 3)) %>% 
-    mutate(SAME = 1*(Asset == Asset2)) %>% 
-    as.data.frame()
+# # If both methods run, check that both methods gave the same results
+# opt_df_best %>% left_join(
+#     opt_df_best2 %>%
+#         rename(Asset2 = Asset, w_opt2 = w_opt, opt_val2=opt_val, convg2 = convg)
+#     ) %>% 
+#     mutate(across(where(is.double),round, digits = 3)) %>% 
+#     mutate(SAME = 1*(Asset == Asset2)) %>% 
+#     as.data.frame()
 
 
 # Select opt_df_best or opt_df_best2
