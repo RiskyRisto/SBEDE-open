@@ -11,20 +11,20 @@ dir_files <- ""
 dir_models <- ""
 
 #Industry
-indu <- "CommunicationsEquipment"
+indu <- "LifeHealthInsurance"
 
 # 2. Data wrangling----
 ## 2.1. Load data ----
 
 # Real returns
-df_market <- read_excel(paste0(dir_files,"example_data_sim_CommunicationsEquipment.xlsx"), 
+df_market <- read_excel(paste0(dir_files,"example_data_sim_",indu,".xlsx"), 
                          sheet = "df_market")
 # Expert predictions
-df_predictions <- read_excel(paste0(dir_files,"example_data_sim_CommunicationsEquipment.xlsx"), 
+df_predictions <- read_excel(paste0(dir_files,"example_data_sim_",indu,".xlsx"), 
                          sheet = "df_predictions")
 
 # Dividends
-df_dividends <- read_excel(paste0(dir_files,"example_data_sim_CommunicationsEquipment.xlsx"), 
+df_dividends <- read_excel(paste0(dir_files,"example_data_sim_",indu,".xlsx"), 
                            sheet = "df_dividends")
 
 # If you have already done Bayesian anlysis and saved posterior iterations, jump to 5.
@@ -68,7 +68,7 @@ df_x_model
 
 ## 3.1. Market parameters
 sd_rp0 = 0.04 #prior expected value for industry risk premium
-sd_rp0 = 0.2 #prior uncertainty of market rp as sd
+sd_rp0 = 0.1 #prior uncertainty of market rp as sd
 # psi = scale parameter for t-distribution
 scale_psi0 = 0.075
 scale_psi_star = 0.075
@@ -79,14 +79,13 @@ beta_nu0 = 0.1
 alpha_nu = 2
 beta_nu = 0.1
 ## 4.2. Expert parameters
-scale_theta = 0.1 # average bias
-scale_zeta = 0.1 # asset bias, u
-scale_xi = 0.05 # expert bias, v
+scale_kappa = 0.15 # average bias
+xi = 0.3 # expert bias
 mean_tau = 0.065 # responsiveness
 sd_tau = 0.0125 # responsiveness
 scale_sigma_star = 0.15 # average inaccuracy
 scale_iota = 1.5 # inaccuracy variation
-Omega_eta = 1 # correlation
+shape_Omega = 1 # correlation
 
 ## Other settings
 use_likelihood = 1 # 0 if testing model based only on priors
@@ -122,7 +121,7 @@ thin = 1
 
 # Test first with much less iterations
 warmup = 5000
-  iter = 10000
+  iter = 15000
     
 r <- nchains *(iter-warmup)/thin
     
@@ -163,14 +162,13 @@ dat_stan_SB <- list(
     alpha_nu = alpha_nu,
     beta_nu =beta_nu,
     ## Expert parameters
-    scale_theta = scale_theta, # average bias
-    scale_zeta = scale_zeta, # asset bias, u
-    scale_xi = scale_xi, # expert bias, v
+    scale_kappa = scale_kappa, # prior std of average bias
+    xi = xi, # std of expert biases
     mean_tau = mean_tau, # responsiveness
     sd_tau = sd_tau, # responsiveness
     scale_sigma_star = scale_sigma_star, # average inaccuracy
     scale_iota = scale_iota, # inaccuracy variation
-    Omega_eta = Omega_eta, # correlation
+    shape_Omega = shape_Omega, # prior parameter for correlations between experts
     ## Other settings
     use_likelihood = use_likelihood # 0 if testing model based only on priors
 )
@@ -208,17 +206,22 @@ post_df_SB %>% apply(2, ess_tail)
 # Return forecasts
 print(fit_SB, c("x0_next","x_next"))
 # Features of individual experts
-print(fit_SB, c("phi", "sigma","v_j"))
-# Real values, used in the simulation
-# phi[1]       phi[2]       phi[3]       phi[4]       phi[5]       phi[6] 
-# -0.054702685  0.163483601  0.069978029 -0.001163561  0.089806272  0.397595787 
-# sigma[1]   sigma[2]   sigma[3]   sigma[4]   sigma[5]   sigma[6] 
-# 0.17973306 0.07457429 0.08352689 0.06528408 0.07682958 0.06881392 
-#       v_j[1]       v_j[2]       v_j[3]       v_j[4]       v_j[5]       v_j[6] 
-# -0.052962915 -0.035044829  0.113173196  0.016487863 -0.012259702 -0.004678726 
+print(fit_SB, c("phi", "sigma","b"))
+# Real values, used in the simulation data
+#phi[1]      phi[2]      phi[3]      phi[4] 
+#1.11026735  0.61022375 -0.08028038  0.02519934 
+
+#sigma[1]   sigma[2]   sigma[3]   sigma[4] 
+#0.06903510 0.07638935 0.10830274 0.08600252 
+
+# b_ij, one column for each expert
+#Stock  1            2          3         4
+#[1,] -0.04825936  0.017400790 0.10430063 0.1777876
+#[2,] -0.10719678 -0.005253076 0.12460240        NA
+#[3,] -0.04090497  0.255072340 0.01115048        NA
 
 # Common features of experts
-print(fit_SB, c( "theta", "u_i", "zeta", "xi", "tau", "sigma_star"))
+print(fit_SB, c( "kappa", "tau", "sigma_star"))
 # Stock features
 print(fit_SB, c("mu_next","psi0", "psi", "psi_star", "nu0","nu"))
     
@@ -269,8 +272,8 @@ dat_stan_EE <- list(
     alpha_nu = alpha_nu,
     beta_nu =beta_nu,
     ## 4.2. Expert parameters
-    scale_theta = scale_theta, # average bias
-    scale_zeta = scale_zeta, # asset bias, u
+    scale_kappa = scale_kappa, # average bias
+    xi = xi, # bias variation
     tau = tau_ee, # sd of responsiveness
     scale_sigma_star = scale_sigma_star, # average inaccuracy
     ## 5. Settings
@@ -310,7 +313,7 @@ post_df_EE %>% apply(2, ess_bulk)
 post_df_EE %>% apply(2, ess_tail)
 
 # Parameter estimates and convergence metrics
-print(fit_EE, c("x0_next","mu_next", "psi0", "psi", "nu0","nu", "theta","zeta", "u_i", "phi_star", "sigma_star", "rho"))
+print(fit_EE, c("x0_next","mu_next", "psi0", "psi", "nu0","nu", "kappa", "b", "phi_star", "sigma_star", "rho"))
 
 
 run_info_EE <- tibble(nchains = nchains, thin = thin, warmup = warmup, iter = iter,
@@ -328,14 +331,17 @@ require(bayesplot)
 # Select fitted model
 fit <- fit_SB
 
+# Experts' responsivenesses to reality
 mcmc_areas(rstan::extract(fit, pars = "phi", permuted = FALSE), prob = 0.9) + 
     ggtitle("Posterior distribution for phi","with medians and 90% intervals") +
-    lims(x = c(-0.5,1))
+    lims(x = c(-0.5,1.5))
 
-mcmc_areas(rstan::extract(fit, pars = "v_j", permuted = FALSE), prob = 0.9) + 
+# Experts' biases for each stock
+mcmc_areas(rstan::extract(fit, pars = "b", permuted = FALSE), prob = 0.9) + 
     ggtitle("Posterior distribution for personal bias","with medians and 90% intervals") +
     lims(x = c(-0.5,1))
 
+# Future returns
 mcmc_areas(rstan::extract(fit, pars = "x_next", permuted = FALSE), prob = 0.9) + 
     ggtitle("Posterior distribution for future returns","with medians and 90% intervals") +
     lims(x = c(-1,1))
@@ -343,10 +349,11 @@ mcmc_areas(rstan::extract(fit, pars = "x_next", permuted = FALSE), prob = 0.9) +
 # Select fitted model
 fit <- fit_EE
 
+# Expert's common resposivenees to reality
 mcmc_areas(rstan::extract(fit, pars = "phi_star", permuted = FALSE), prob = 0.9) + 
     ggtitle("Posterior distribution for phi","with medians and 90% intervals") +
     lims(x = c(-0.5,1))
-
+# Future returns
 mcmc_areas(rstan::extract(fit, pars = "x_next", permuted = FALSE), prob = 0.9) + 
     ggtitle("Posterior distribution for future returns","with medians and 90% intervals") +
     lims(x = c(-1,1))
@@ -359,10 +366,12 @@ df_H %>%
     group_by(Company_id) %>% 
     summarise(mean = mean(Prediction), sd = sd(Prediction), med = median(Prediction), n = n())
 
-# SE model
+# SE model mean and sd of future returns
 run_list_SB$post_df_SB %>% summarise(across(everything(), mean))
-# EE model
+run_list_SB$post_df_SB %>% summarise(across(everything(), sd))
+# EE model mean and sd of future returns
 run_list_EE$post_df_EE %>% summarise(across(everything(), mean))
+run_list_EE$post_df_EE %>% summarise(across(everything(), sd))
 
 # Explanations for differences
 # Individual current targets
@@ -372,10 +381,11 @@ df_H %>%
     geom_point()+
     facet_wrap(~Company_id) +
     geom_vline(xintercept = 0, col ="red") +
-    scale_y_continuous(breaks = seq(0, max(df_H$Analyst_id), by = 1)) 
+    scale_y_continuous(breaks = seq(0, max(df_H$Analyst_id), by = 1)) +
+    ggtitle("Expert predictions of future returns for each stock")
 
 # Historical performance
-lim_fix <- 0.6
+lim_fix <- 1
 df_x_model %>% 
     select(-ind) %>% 
     left_join(df_e_model) %>% 
@@ -446,7 +456,7 @@ saveRDS(df_posterior_div, file = paste0(dir_files, "df_posterior_div.rds"))
 
 # 5. Portfolio decisions ----
 
-## 5.1. Optimization ----
+## 5.1. Optimization with posteriors (x_next) and dividend expectations----
 # Load posterior predictions
 df_posterior_div <- readRDS(file = paste0(dir_files, "df_posterior_div.rds"))
 (N <- df_posterior_div %>% filter(Asset != "Asset_0") %>% distinct(Asset) %>% nrow())
@@ -604,7 +614,7 @@ decision_tbl <- opt_df_best_select %>% select(Method, Asset, w_opt) %>%
         df_returns_next %>% filter(Asset == "0") %>% 
             mutate(Method = "Index", w_opt = 1, x_real0 = x_real, y_real0 = y_real)
         ) %>% 
-    mutate(G_real = w_opt*exp(y_real) + (1-w_opt)*y_real0) %>% 
+    mutate(G_real = w_opt*exp(y_real) + (1-w_opt)*exp(y_real0)) %>% 
     left_join(df_E %>% select(Method, Asset, EG)) %>% 
     # Index expectations based on both models
     left_join(df_E %>% filter(Asset == 0) %>% select(Method, EG0 = EG))

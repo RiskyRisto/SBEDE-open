@@ -33,14 +33,13 @@ data {
   real<lower = 0> alpha_nu;
   real<lower = 0> beta_nu;
    // 4.2. Expert parameters
-  real<lower = 0> scale_theta; // average bias
-  real<lower = 0> scale_zeta; // asset bias, u
-  real<lower = 0> scale_xi; // expert bias, v
-  real<lower = 0> mean_tau; // responsiveness
-  real<lower = 0> sd_tau; // responsiveness
+  real<lower = 0> scale_kappa; // prior std of mean bias
+  real<lower = 0> xi; // bias variation
+  real<lower = 0> mean_tau; // mean responsiveness
+  real<lower = 0> sd_tau; // sd of responsiveness
   real<lower = 0> scale_sigma_star; // average inaccuracy
   real<lower = 0> scale_iota; //inaccuracy variation
-  real<lower = 0> Omega_eta; // correlation
+  real<lower = 0> shape_Omega; // shape parameter for correlation matrix
   // 5. Settings
   int<lower = 0, upper = 1> use_likelihood;
 }
@@ -65,11 +64,8 @@ parameters {
   vector<lower=0>[N] c_i; //scale random effect for assets
   //Expert parameters
   // Bias
-  real theta; //mean of systematic mean
-  vector[N] u_i_tilde; //standardized collective bias for each asset
-  real<lower = 0> zeta; //sd of collective asset bias random effect
-  vector[J] v_j_tilde; //standardized  expert bias random effect
-  real<lower = 0> xi; //sd of analyst bias random effect
+  real kappa; //mean expert bias
+  vector[J] b_tilde[N]; //standardized expert biases for each stock
   // Responsiveness
   real<lower=0> tau; //horseshoe global parameter
   vector<lower=0>[J] lambda; //horseshoe local parameter
@@ -78,7 +74,7 @@ parameters {
   real<lower=0> sigma_star; //shared standard deviations of experts, aka precision
   real<lower = 0> iota; //sd of precision random effect
   vector<lower=0>[J] d_j; //sd random effect for assets
-  cholesky_factor_corr[J] Lcorr;
+  cholesky_factor_corr[J] L_Omega;
  
   vector[n_M_mis] M_mis; // Vector containing "stochastic" nodes for filling missing values
 }
@@ -87,32 +83,28 @@ transformed parameters {
 //Market parameters
   vector<lower = 0>[N] psi;
   //Expert parameters
-  vector[N] u_i; //systematic collective bias for each asset
-  vector[J] v_j; //systematic bias for each expert
-  vector[J] phi; //sensitivity to reality for each expert,
-  //vector[J] mean_M[n_X]; //mean of each forecast vector
+  vector[J] phi; //sensitivity to reality for each expert, aka informativeness,
+  vector[J] b[N]; //expert biases for each stock
   vector<lower=0>[J] sigma; //standard deviations of experts, aka precision
 
-
+    //Define Market parameters
+    for(i in 1:N) psi[i] = psi_star/sqrt(c_i[i]);
   // Define Expert parameters
-  u_i = theta + u_i_tilde*zeta;
-  v_j = v_j_tilde*xi;
-  
-  phi = phi_tilde .* lambda * tau;
-  
-  //for(ind in 1:n_X) mean_M[ind] = phi*mu[t_X[ind]][i_X[ind]] + u_i[i_X[ind]] + v_j;
-  for(i in 1:N) psi[i] = psi_star/sqrt(c_i[i]);
+  for(i in 1:N) b[i] = kappa + b_tilde[i]; //biases
+  phi = phi_tilde .* lambda * tau; //informativeness
   for(j in 1:J) sigma[j] = sigma_star/sqrt(d_j[j]);
 }
 
 
 model {
+    /// Defining parameters that are used within model but not saved
     // Market parameters
     vector[n_t+3] eps[N]; // random shock time series
-    vector[N] mu_shock[n_t]; //mu+realized shocks
+    vector[N] mu_shock[n_t]; //mu+realized shocks, before the last company shock
     vector[J] M[n_X]; //the standardized "data" with interpolated missing values
       // Current forecasts
   vector[J] M_next[N];
+  
       // Fill M with non-missing values 
   for(ind in 1:n_M_obs) {
     if(ind_M_obs[ind] <= n_X) {
@@ -133,7 +125,7 @@ model {
   // Priors
   nu0 ~ gamma(alpha_nu0,beta_nu0);
   nu ~ gamma(alpha_nu,beta_nu);
-  scale_psi_star ~ normal(0, scale_psi_star);
+  psi_star ~ normal(0, scale_psi_star);
   omega ~ normal(0, scale_omega);
   c_i ~ gamma((1/omega)^2, 1/(omega^2)); 
   for(i in 1:N){
@@ -148,38 +140,33 @@ model {
 
   
   // Expert parameters
-  theta ~ normal(0, scale_theta);
-  zeta ~ normal(0, scale_zeta);
-  xi ~ normal(0, scale_xi);
-  u_i_tilde ~ normal(0,1);
-  v_j_tilde ~ normal(0,1);
-  
-  sigma_star ~ normal(0, scale_sigma_star); // prior on the standard deviations
-  iota ~ normal(0, scale_iota);
-  d_j ~ gamma((1/iota)^2, 1/(iota^2));
-
+  kappa ~ normal(0, scale_kappa);
+  for(i in 1:N) b_tilde[i] ~ normal(0,xi);
   phi_tilde ~ normal(0, 1);
   lambda ~ cauchy(0, 1);
   tau ~ gamma((mean_tau/sd_tau)^2,mean_tau/(sd_tau^2));
-  Lcorr ~ lkj_corr_cholesky(Omega_eta);
+  sigma_star ~ normal(0, scale_sigma_star); // prior on the standard deviations
+  iota ~ normal(0, scale_iota);
+  d_j ~ gamma((1/iota)^2, 1/(iota^2));
+  L_Omega ~ lkj_corr_cholesky(shape_Omega);
   
-  // LIKELIHOODS and imputing model
+  // LIKELIHOODS and imputation model
   if(use_likelihood){
   for(ind in 1:n_X){
-  M[ind] ~ multi_normal_cholesky(phi*mu[t_X[ind]][i_X[ind]] + u_i[i_X[ind]] + v_j, diag_pre_multiply(sigma, Lcorr)); //prior for missing values, likelihood for non-missing
+  M[ind] ~ multi_normal_cholesky(b[i_X[ind]] + phi*mu[t_X[ind]][i_X[ind]], diag_pre_multiply(sigma, L_Omega)); //prior for missing values, likelihood for non-missing
   }
   
     // Define parameters in the asset model
     for(i in 1:N) for(t in 1:3)  eps[i][t] = eps_init[t][i];
     for(t in 1:n_t){
       for(i in 1:N) {
-      mu_shock[t][i] = mu[t][i]+sum(eta[t:(t+2)]) + sum(eps[i][t:(t+2)]);
+      mu_shock[t][i] = mu[t][i] + sum(eta[t:(t+3)]) + sum(eps[i][t:(t+2)]);
       x_vec[t][i] ~ student_t(nu, mu_shock[t][i], psi[i]);
-      eps[i][t+3] = x_vec[t][i]-mu[t][i]-sum(eps[i][t:(t+2)]);
+      eps[i][t+3] = x_vec[t][i]-mu_shock[t][i];
       }
   }
   //predictions as missing values
-  for(i in 1:N) M_next[i] ~ multi_normal_cholesky(phi*mu_next[i] + u_i[i] + v_j, diag_pre_multiply(sigma, Lcorr));
+  for(i in 1:N) M_next[i] ~ multi_normal_cholesky(b[i] + phi*mu_next[i], diag_pre_multiply(sigma, L_Omega));
   }
 }
 
@@ -196,5 +183,5 @@ generated quantities{
         x_next[i] = mu_next[i] + sum(eta_last[1:4]) + sum(eps_last[i][1:4]);
     } 
     x0_next = sum(x_next)/N;
-    Omega = multiply_lower_tri_self_transpose(Lcorr);
+    Omega = multiply_lower_tri_self_transpose(L_Omega);
 }

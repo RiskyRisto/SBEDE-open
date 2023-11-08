@@ -25,14 +25,14 @@ data {
   real sd_rp0; //prior uncertainty of market rp as sd
   real<lower = 0> scale_psi0;
   real<lower = 0> scale_psi_star;
-  real<lower = 0> scale_omega; //1.5
+  real<lower = 0> scale_omega; 
   real<lower = 0> alpha_nu0;
   real<lower = 0> beta_nu0;
   real<lower = 0> alpha_nu;
   real<lower = 0> beta_nu;
    // 4.2. Expert parameters
-  real<lower = 0> scale_theta; // average bias
-  real<lower = 0> scale_zeta; // asset bias, u
+  real<lower = 0> scale_kappa; // average bias
+  real<lower = 0> xi; // bias variation
   real<lower = 0> tau; // sd of responsiveness
   real<lower = 0> scale_sigma_star; // average inaccuracy
   // 5. Settings
@@ -59,20 +59,13 @@ parameters {
   vector<lower=0>[N] c_i; //sd random effect for assets
   //Expert parameters
   // Bias
-  real theta; //mean of systematic mean
-  vector[N] u_i_tilde; //standardized collective bias for each asset
+  real kappa; //mean of systematic mean
+  vector[N] b_tilde; //standardized expert bias for each stock
   real<lower = 0> zeta; //sd of collective asset bias random effect
-  //vector[J] v_j_tilde; //standardized  expert bias random effect
-  //real<lower = 0> xi; //sd of analyst bias random effect
   // Responsiveness
-  //real<lower=0> tau; //std of phi
-  //vector<lower=0>[J] lambda; //horseshoe local parameter
   real phi_star; //sensitivity to reality for each expert,
-  //real phi_tilde; //sensitivity to reality for all expert, standardized
   // Inaccuracy
   real<lower=0> sigma_star; //shared standard deviations of experts, aka precision
-  //real<lower = 0> sd_d; //sd of precision random effect
-  //vector<lower=0>[J] d_j; //sd random effect for assets
   real<lower=-1, upper = 1> rho;
   vector[n_M_mis] M_mis; // Vector containing "stochastic" nodes for filling missing values
 }
@@ -81,14 +74,12 @@ transformed parameters {
 //Market parameters
   vector<lower = 0>[N] psi;
   //Expert parameters
-  vector[N] u_i; //systematic collective bias for each asset
-  //vector[J] v_j; //systematic bias for each expert
-  //vector[J] mean_M[n_X]; //mean of each forecast vector
+  vector[N] b; //systematic collective bias for each asset
   vector<lower=0>[J] sigma; //standard deviations of experts, aka precision
   corr_matrix[J] Omega;
 
   // Define Expert parameters
-  u_i = theta + u_i_tilde*zeta;
+  b = kappa + b_tilde;
   
   for(i in 1:N) psi[i] = psi_star/sqrt(c_i[i]);
   sigma = rep_vector(sigma_star, J);
@@ -110,10 +101,11 @@ transformed parameters {
 model {
     // Market parameters
     vector[n_t+3] eps[N]; // random shock time series
-    vector[N] mu_shock[n_t]; //mu+realized shocks
+    vector[N] mu_shock[n_t]; //mu+realized shocks, before the last company shock
     vector[J] M[n_X]; //the standardized "data" with interpolated missing values
       // Current forecasts
   vector[J] M_next[N];
+  
       // Fill M with non-missing values 
   for(ind in 1:n_M_obs) {
     if(ind_M_obs[ind] <= n_X) {
@@ -134,7 +126,7 @@ model {
   // Priors
   nu0 ~ gamma(alpha_nu0,beta_nu0);
   nu ~ gamma(alpha_nu,beta_nu);
-  scale_psi_star ~ normal(0, scale_psi_star);
+  psi_star ~ normal(0, scale_psi_star);
   omega ~ normal(0, scale_omega);
   c_i ~ gamma((1/omega)^2, 1/(omega^2)); 
   for(i in 1:N){
@@ -149,9 +141,8 @@ model {
 
   
   // Expert parameters
-  theta ~ normal(0, scale_theta);
-  zeta ~ normal(0, scale_zeta);
-  u_i_tilde ~ normal(0,1);
+  kappa ~ normal(0, scale_kappa);
+  b_tilde ~ normal(0,xi);
   phi_star ~ normal(0, tau);
   sigma_star ~ normal(0, scale_sigma_star); // prior on the standard deviations
   rho ~ uniform(-1,1);
@@ -159,20 +150,20 @@ model {
   // LIKELIHOODS and imputing model
   if(use_likelihood){
   for(ind in 1:n_X){
-  M[ind] ~ multi_normal(rep_vector(phi_star*mu[t_X[ind]][i_X[ind]] + u_i[i_X[ind]], J), quad_form_diag(Omega, sigma)); //prior for missing values, likelihood for non-missing
+  M[ind] ~ multi_normal(rep_vector(b[i_X[ind]] + phi_star*mu[t_X[ind]][i_X[ind]], J), quad_form_diag(Omega, sigma)); //prior for missing values, likelihood for non-missing
   }
   
     // Define parameters in the asset model
     for(i in 1:N) for(t in 1:3)  eps[i][t] = eps_init[t][i];
     for(t in 1:n_t){
       for(i in 1:N) {
-      mu_shock[t][i] = mu[t][i]+sum(eta[t:(t+2)]) + sum(eps[i][t:(t+2)]);
+      mu_shock[t][i] = mu[t][i] + sum(eta[t:(t+3)]) + sum(eps[i][t:(t+2)]);
       x_vec[t][i] ~ student_t(nu, mu_shock[t][i], psi[i]);
-      eps[i][t+3] = x_vec[t][i]-mu[t][i]-sum(eps[i][t:(t+2)]);
+      eps[i][t+3] = x_vec[t][i]-mu_shock[t][i];
       }
   }
   //predictions as missing values
-  for(i in 1:N) M_next[i] ~ multi_normal(rep_vector(phi_star*mu_next[i] + u_i[i], J), quad_form_diag(Omega, sigma));
+  for(i in 1:N) M_next[i] ~ multi_normal(rep_vector(b[i] + phi_star*mu_next[i], J), quad_form_diag(Omega, sigma));
   }
 }
 

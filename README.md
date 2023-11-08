@@ -12,7 +12,7 @@ The SBEDE model coded with Stan: SBEDE.stan
 
 A simplified SBEDE model, where all experts are assumed to be exchangeable: EE_SBEDE.stan
 
-An example data set where expert predictions are simulated: example_data_sim_CommunicationsEquipment.xlsx
+An example data set where expert predictions are simulated: example_data_sim_LifeHealthInsurance.xlsx
 
 Supportive functions for portfolio optimization with the Kelly criteria: functions_optimization_example.RData
 
