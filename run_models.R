@@ -67,7 +67,7 @@ df_x_model
 # 3. Hyperparameters for Bayesian models ----
 
 ## 3.1. Market parameters
-sd_rp0 = 0.04 #prior expected value for industry risk premium
+mean_rp0 = 0.04 #prior expected value for industry risk premium
 sd_rp0 = 0.1 #prior uncertainty of market rp as sd
 # psi = scale parameter for t-distribution
 scale_psi0 = 0.075
@@ -152,7 +152,7 @@ dat_stan_SB <- list(
     ind_M_mis= df_ind_e_mis$ind, # // index of corresponding realized return
     #Hyper priors
     ## Market parameters
-    mean_rp0 = sd_rp0,
+    mean_rp0 = mean_rp0,
     sd_rp0 = sd_rp0,
     scale_psi0 = scale_psi0, 
     scale_psi_star = scale_psi_star,
@@ -262,7 +262,7 @@ dat_stan_EE <- list(
     ind_M_mis= df_ind_e_mis$ind, # // index of corresponding realized return
     #4. Parameters for hyperpriors
     ## 4.1. Market parameters
-    mean_rp0 = sd_rp0,
+    mean_rp0 = mean_rp0,
     sd_rp0 = sd_rp0,
     scale_psi0 = scale_psi0, 
     scale_psi_star = scale_psi_star,
@@ -481,7 +481,7 @@ for(method in c("SB", "EE")){
     
         print(paste("Method", method))
   
-        opt_dat_df <- df_posterior_div %>% 
+        opt_dat_df <<- df_posterior_div %>% 
             filter(Method == method) %>% 
             pivot_wider(Scenario, names_from = "Asset", values_from = "y") %>% 
             rename(Index = "Asset_0")
@@ -532,7 +532,7 @@ for(method in c("SB", "EE")){
     }
     if(!two_step)
         for(i in 1:N){
-            opt_dat_df <- df_posterior_div %>% 
+            opt_dat_df <<- df_posterior_div %>% 
                 filter(Method == method) %>% 
                 pivot_wider(Scenario, names_from = "Asset", values_from = "y") %>% 
                 rename(Index = "Asset_0", X = paste0("Asset_",i))

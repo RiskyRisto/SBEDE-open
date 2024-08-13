@@ -73,7 +73,7 @@ parameters {
   // Inaccuracy
   real<lower=0> sigma_star; //shared standard deviations of experts, aka precision
   real<lower = 0> iota; //sd of precision random effect
-  vector<lower=0>[J] d_j; //sd random effect for assets
+  vector<lower=0>[J] d_j; //sd random effect for experts
   cholesky_factor_corr[J] L_Omega;
  
   vector[n_M_mis] M_mis; // Vector containing "stochastic" nodes for filling missing values
