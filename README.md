@@ -8,13 +8,20 @@ The data set for the illustration of the SBEDE portfolio model include one examp
 ## Current files
 ### Analysis of the example industry
 The process flow with explanations: run_models.R
+
 The SBEDE model coded with Stan: SBEDE.stan
+
 A simplified SBEDE model, where all experts are assumed to be exchangeable: EE_SBEDE.stan
+
 An example data set where expert predictions are simulated: example_data_sim_LifeHealthInsurance.xlsx
+
 Supportive functions for portfolio optimization with the Kelly criteria: functions_optimization_example.RData
 
 ### Simulation study
 Excel file for defining parameters for simulating data: parameter_values_for_sim.xlsx
+
 R codes for simulating data and fitting Bayesian models: script_loop_gen_data_fit_models.R
+
 R codes for optimizing portfolios and calculating performance metrics: script_optimize_performance.R
+
 Supportive functions for scripts above: functions_simulator.R
