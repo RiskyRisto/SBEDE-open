@@ -15,10 +15,12 @@ A simplified SBEDE model, where all experts are assumed to be exchangeable: EE_S
 
 An example data set where expert predictions are simulated: example_data_sim_LifeHealthInsurance.xlsx
 
-Supportive functions for portfolio optimization with the Kelly criteria: functions_optimization_example.RData
+Supportive functions for portfolio optimization with the Kelly criteria: functions_optimization_example.R
 
 ### Simulation study
 Excel file for defining parameters for simulating data: parameter_values_for_sim.xlsx
+
+STAN file for fitting the model in Merkle et al. (2020): Merkle.stan
 
 R codes for simulating data and fitting Bayesian models: script_loop_gen_data_fit_models.R
 
