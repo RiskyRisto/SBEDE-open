@@ -10,29 +10,32 @@ source("Simulation_study/functions_simulator.R")
 df_scen <- tibble(nT_hi = rep(c(20,40), each = 2), J = rep(c(4,8), 2)) %>% 
     mutate(scen_id = row_number())
 
-## Folders for data and results
+## Folders for data and forecasts, created earlier
 dir_data_save <- "Simulation_study/Simulated_data/"
 dir_res_save <- "Simulation_study/Sim_forecasts/"
+## Folders for saving performance results, create if do not exist
 dir_perf_save <- "Simulation_study/Performance_results/"
 
 
-Puhti <- FALSE # This is related to outsourced computing in CSC
-if(Puhti){
-    dir_data_save <- "Simulation_study/Puhti_outputs/Simulated_data/"
-    dir_res_save <- "Simulation_study/Puhti_outputs/Sim_forecasts/"
-    dir_perf_save <- "Simulation_study/Puhti_outputs/Performance_results/"
-}
+#Puhti <- FALSE # This is related to outsourced computing in CSC
+#if(Puhti){
+#    dir_data_save <- "Simulation_study/Puhti_outputs/Simulated_data/"
+#    dir_res_save <- "Simulation_study/Puhti_outputs/Sim_forecasts/"
+#    dir_perf_save <- "Simulation_study/Puhti_outputs/Performance_results/"
+#}
 
 # Fixed settings
-N = 5
-sets <- 1:10 # 1:500 in the real study
+N = 5 # number of companies in the industry
+sets <- 1:5 # 1:500 in the real study
+
+# Investing objectives
 object_vec <- c("KELLY", "SHARPE", "U3")
 
 # Assuming zero dividends
 df_dividends <- tibble(Company_id = 0:N, Div_pr = 0) %>% 
     mutate(Company = paste0("Company_",Company_id))
 
-# 2 Loop predictions and with performance metrics ----
+# 2 Loop forecasts with performance metrics ----
 for(sce in df_scen$scen_id){ 
     # Settings based on scenario
     nT_hi <- df_scen %>% filter(scen_id == sce) %>% pull(nT_hi)
@@ -108,7 +111,8 @@ for(sce in df_scen$scen_id){
         ) %>% 
         filter(t <= nT_hi)
     
-    # Jaspersen forecasts, not used in the real study
+    # Jaspersen forecasts
+    # not working (too unrealistic assumptions) and not used in the real study
     # Delta_iy <- df_pred_x_hist %>% 
     #     group_by(Expert) %>% 
     #     summarise(cor = cor(M,x)) %>% 
@@ -237,8 +241,9 @@ for(sce in df_scen$scen_id){
 
 # 3. Looping optimization with performance metrics ----
 model_vec <- c("SB", "EE", "ME") # SBEDE, EE and Merkle
-    obj <- "U3" #Repeat with followings: "KELLY", "SHARPE", "U3"
-        for(sce in df_scen$scen_id){
+    #obj <- "U3" #Repeat with followings: "KELLY", "SHARPE", "U3"
+for(obj in object_vec){    
+    for(sce in df_scen$scen_id){
             nT_hi <- df_scen %>% filter(scen_id == sce) %>% pull(nT_hi)
             J <- df_scen %>% filter(scen_id == sce) %>% pull(J)
             H = nT_hi+3
@@ -401,7 +406,7 @@ model_vec <- c("SB", "EE", "ME") # SBEDE, EE and Merkle
                              tbl_perf = tbl_perf,
                              oc_tbl = oc_tbl), path = paste0(dir_perf_save,"performance_N",N,"_J",J,"_nT",nT_hi,"_obj",obj,".xlsx"))
         }
-    
+}
     
 # 4 Report results ----
 table1_all <- NULL
@@ -412,7 +417,6 @@ decision_tbl_all <- NULL
 
 
 for(sce in df_scen$scen_id){
-    #sce <- 1
     nT_hi <- df_scen %>% filter(scen_id == sce) %>% pull(nT_hi)
     J <- df_scen %>% filter(scen_id == sce) %>% pull(J)
     H = nT_hi+3
@@ -512,11 +516,11 @@ decision_tbl_all <- decision_tbl_all %>% bind_rows(decision_tbl)
 }
 
 ## 4.3. Save some figures/tables ----
+# Define a saving folder, create if does not exist
 dir_report_figures <- "Simulation_study/Saved_figures/"
 
 fig_mae <- table1_all %>% 
     rename(n_t = nT) %>% 
-    #filter(Method!="Jaspersen") %>% 
     ggplot(aes(y = Method, x = MAE)) +
     geom_bar(stat = "identity") +
     #theme_minimal() +
@@ -529,7 +533,6 @@ ggsave(paste0(dir_report_figures,"table_MAE_500.eps"),device = "eps", width = 6,
 
 fig_mae_prem <- table1_2_all %>% 
     rename(n_t = nT) %>% 
-    #filter(Method!="Jaspersen") %>% 
     ggplot(aes(y = Method, x = MAE_med)) +
     geom_bar(stat = "identity") +
     #theme_minimal() +
@@ -551,7 +554,6 @@ CP_table <- table1_all %>%
 CP_table %>% 
     ggplot(aes(x = Interval, y = CP, fill = Method)) +
     geom_hline(yintercept = c(0.5,0.68,0.9,0.95)) +
-    #geom_point(stat = "identity",  size = 0.6) +
     geom_bar(stat = "identity", position = position_dodge()) +
     theme_minimal() +
     scale_fill_grey() +

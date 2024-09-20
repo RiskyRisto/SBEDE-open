@@ -12,18 +12,24 @@ df_scen <- tibble(nT_hi = rep(c(20,40), each = 2), J = rep(c(4,8), 2)) %>%
     mutate(scen_id = row_number())
 
 ## 1.2. Fixed settings ----
-N = 5
-nchains <- 4
-warmup = 2000 #7500 in the real study but takes time
+# Number of companies within the industry
+N = 5 
+# # of chains in MCMC algorithm
+nchains <- 4 
+# # of warmup iterations = # saved iterations in one chain
+warmup = 1000 #7500 in the real study but takes time
 #Number of repetition
-study_size <- 10 #500 in the real study but it takes time
+study_size <- 5 #500 in the real study but it takes time
 
+# Parameter values for simulating data can be manipulated within this Excel - file
 df_fixed_parameters <- read_xlsx("Simulation_study/parameter_values_for_sim.xlsx",sheet = "Fixed_parameters")
 df_varying_parameters <- read_xlsx("Simulation_study/parameter_values_for_sim.xlsx",sheet = "Varying_parameters")
 
+# File for saving simulated data. Create if the file does not exist
 dir_data_save <- "Simulation_study/Simulated_data/"
-# Set your directory for reading STAN models if relevant
+# Set your directory for reading STAN models
 dir_models <- ""
+# # File for saving forecasted scenarios. Create if the file does not exist
 dir_res_save <- "Simulation_study/Sim_forecasts/"
 
 ## 1.3. Read and compile Bayes models ----
